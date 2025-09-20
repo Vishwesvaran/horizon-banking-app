@@ -1,20 +1,29 @@
-'use client'
+'use client';
 
-import { Loader2 } from 'lucide-react'
 import Image from 'next/image'
+import Link from 'next/link'
 import React, { useState } from 'react'
+
+import { z } from "zod"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
-import { email, z } from 'zod'
 import { Button } from "@/components/ui/button"
-import { Form } from "@/components/ui/form"
-import { authFormSchema } from '@/lib/utils'
-import CustomInput from './CustomInput'
-import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { signIn, signUp } from '@/lib/actions/user.actions'
-import PlaidLink from './PlaidLink'
-
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form"
+import { Input } from "@/components/ui/input"
+import CustomInput from './CustomInput';
+import { authFormSchema } from '@/lib/utils';
+import { Loader2 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { signIn, signUp } from '@/lib/actions/user.actions';
+import PlaidLink from './PlaidLink';
 
 const Authform = ({ type }: { type: string }) => {
     const router = useRouter()
@@ -29,9 +38,11 @@ const Authform = ({ type }: { type: string }) => {
         resolver: zodResolver(formSchema),
         defaultValues: {
             email: "",
+            password:""
         },
     })
 
+    
 
     const onSubmit = async (data: z.infer<typeof formSchema>) => {
         setIsLoading(true)
