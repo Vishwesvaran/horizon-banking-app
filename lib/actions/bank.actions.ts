@@ -3,6 +3,7 @@
 import {
   ACHClass,
   CountryCode,
+  TransactionsSyncRequest,
   TransferAuthorizationCreateRequest,
   TransferCreateRequest,
   TransferNetwork,
@@ -20,7 +21,7 @@ export const getAccounts = async ({ userId }: getAccountsProps) => {
   try {
     // get banks from db
     const banks = await getBanks({ userId });
-  
+
     const accounts = await Promise.all(
       banks?.map(async (bank: Bank) => {
         // get each account info from plaid
@@ -29,13 +30,12 @@ export const getAccounts = async ({ userId }: getAccountsProps) => {
         });
 
         const accountData = accountsResponse.data.accounts[0];
-        
+
         // get institution info from plaid
         const institution = await getInstitution({
           institutionId: accountsResponse.data.item.institution_id!,
         });
 
-        
         const account = {
           id: accountData.account_id,
           availableBalance: accountData.balances.available!,
@@ -70,7 +70,7 @@ export const getAccount = async ({ appwriteItemId }: getAccountProps) => {
   try {
     // get bank from db
     const bank = await getBank({ documentId: appwriteItemId });
-   
+
     // get account info from plaid
     const accountsResponse = await plaidClient.accountsGet({
       access_token: bank.accessToken,
@@ -81,8 +81,6 @@ export const getAccount = async ({ appwriteItemId }: getAccountProps) => {
     const transferTransactionsData = await getTransactionsByBankId({
       bankId: bank.$id,
     });
-
- 
 
     const transferTransactions = transferTransactionsData?.documents.map(
       (transferData: Transaction) => ({
@@ -119,7 +117,7 @@ export const getAccount = async ({ appwriteItemId }: getAccountProps) => {
     };
 
     // sort transactions by date such that the most recent transaction is first
-      const allTransactions = [...transactions, ...transferTransactions].sort(
+    const allTransactions = [...transactions, ...transferTransactions].sort(
       (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
     );
 
@@ -154,32 +152,37 @@ export const getInstitution = async ({
 export const getTransactions = async ({
   accessToken,
 }: getTransactionsProps) => {
+  let cursor: string | undefined;
   let hasMore = true;
-  let transactions: any = [];
+  let transactions: any[] = [];
 
   try {
     // Iterate through each page of new transaction updates for item
     while (hasMore) {
-      const response = await plaidClient.transactionsSync({
+      const request: TransactionsSyncRequest = {
         access_token: accessToken,
-      });
+        cursor:cursor,
+      };
 
+      
+      const response = await plaidClient.transactionsSync(request);
       const data = response.data;
-
-      transactions = response.data.added.map((transaction) => ({
-        id: transaction.transaction_id,
-        name: transaction.name,
-        paymentChannel: transaction.payment_channel,
-        type: transaction.payment_channel,
-        accountId: transaction.account_id,
-        amount: transaction.amount,
-        pending: transaction.pending,
-        category: transaction.category ? transaction.category[0] : "",
-        date: transaction.date,
-        image: transaction.logo_url,
-      }));
-
+      
+      transactions.push(
+        ...data.added.map((tx) => ({
+          id: tx.transaction_id,
+          name: tx.name,
+          amount: tx.amount,
+          date: tx.date,
+          accountId: tx.account_id,
+          pending: tx.pending,
+          category: tx.category?.[0] ?? "",
+          paymentChannel: tx.payment_channel,
+          image: tx.logo_url,
+        }))
+      );
       hasMore = data.has_more;
+      cursor = data.next_cursor;
     }
 
     return parseStringify(transactions);
